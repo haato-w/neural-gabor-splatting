@@ -20,6 +20,7 @@ import numpy as np
 import json
 from pathlib import Path
 from plyfile import PlyData, PlyElement
+import open3d as o3d
 from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
 
@@ -129,7 +130,46 @@ def storePly(path, xyz, rgb):
     ply_data = PlyData([vertex_element])
     ply_data.write(path)
 
-def readColmapSceneInfo(path, images, eval, llffhold=8):
+def voxel_filter(pcd: BasicPointCloud, voxel_size=0.01)->BasicPointCloud:
+    o3d_pcd = o3d.geometry.PointCloud()
+    o3d_pcd.points = o3d.utility.Vector3dVector(pcd.points)
+    o3d_pcd.colors = o3d.utility.Vector3dVector(pcd.colors)
+    o3d_pcd.normals = o3d.utility.Vector3dVector(pcd.normals)
+
+    o3d_downpcd = o3d_pcd.voxel_down_sample(voxel_size=voxel_size)
+
+    down_points = np.asarray(o3d_downpcd.points)
+    down_colors = np.asarray(o3d_downpcd.colors)
+    down_normals = np.asarray(o3d_downpcd.normals)
+
+    return BasicPointCloud(points=down_points.astype(np.float32), colors=down_colors.astype(np.float32), normals=down_normals.astype(np.float32))
+
+def random_sampling(pcd: BasicPointCloud, num_points=-1)->BasicPointCloud:
+    total_points = pcd.points.shape[0]
+    
+    if num_points == -1 or total_points <= num_points:
+        return BasicPointCloud(
+            points=pcd.points.astype(np.float32), 
+            colors=pcd.colors.astype(np.float32), 
+            normals=pcd.normals.astype(np.float32)
+        )
+    
+    print("Executing down sampling...")
+
+    np.random.seed(0)
+    selected_indices = np.random.choice(total_points, num_points, replace=False)
+
+    down_points = pcd.points[selected_indices]
+    down_colors = pcd.colors[selected_indices]
+    down_normals = pcd.normals[selected_indices]
+
+    return BasicPointCloud(points=down_points.astype(np.float32), colors=down_colors.astype(np.float32), normals=down_normals.astype(np.float32))
+
+def down_sample_point_cloud(pcd: BasicPointCloud, num_points)->BasicPointCloud:
+    # return voxel_filter(pcd, 0.01)
+    return random_sampling(pcd, num_points)
+
+def readColmapSceneInfo(path, images, eval, down_sample, init_point_num, llffhold=8):
     try:
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
@@ -168,6 +208,9 @@ def readColmapSceneInfo(path, images, eval, llffhold=8):
         pcd = fetchPly(ply_path)
     except:
         pcd = None
+
+    if down_sample:
+        pcd = down_sample_point_cloud(pcd, num_points=init_point_num)
 
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,

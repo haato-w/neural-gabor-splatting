@@ -1,6 +1,6 @@
-[submodule "submodules/diff-surfel-rasterization"]
-	path = submodules/diff-surfel-rasterization
-	url = https://github.com/hbb1/diff-surfel-rasterization.git
+[submodule "submodules/diff-neural-gabor-rasterization"]
+	path = submodules/diff-neural-gabor-rasterization
+	url = https://github.com/haato-w/diff-neural-gabor-rasterization.git
 [submodule "submodules/simple-knn"]
 	path = submodules/simple-knn
 	url = https://gitlab.inria.fr/bkerbl/simple-knn.git

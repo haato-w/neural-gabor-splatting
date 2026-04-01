@@ -1,4 +1,4 @@
-name: surfel_splatting
+name: neural_gabor_splatting
 channels:
   - pytorch
   - nvidia
@@ -20,7 +20,7 @@ dependencies:
     - scikit-image==0.21.0
     - tqdm==4.66.2
     - trimesh==4.3.2
-    - submodules/diff-surfel-rasterization
+    - submodules/diff-neural-gabor-rasterization
     - submodules/simple-knn
     - plyfile
     - opencv-python
