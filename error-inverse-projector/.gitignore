@@ -1,0 +1,7 @@
+build/
+error_inverse_projector.egg-info/
+dist/
+*.so
+.vscode
+**__pycache__**
+*.pyc

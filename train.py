@@ -10,10 +10,12 @@
 #
 
 import os
+import random
 import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from gaussian_renderer import render, network_gui
+from gaussian_renderer.error_inverse_projector import inverse_project
 import sys
 from scene import Scene, GaussianModel
 from utils.general_utils import safe_state
@@ -22,6 +24,7 @@ from tqdm import tqdm
 from utils.image_utils import psnr, render_net_image
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams, OptimizationParams
+from frequency_detection import FFTBandEnergy, local_average_filter
 try:
     from torch.utils.tensorboard import SummaryWriter
     TENSORBOARD_FOUND = True
@@ -29,6 +32,22 @@ except ImportError:
     TENSORBOARD_FOUND = False
 
 def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint):
+    print(f"Initial point num {dataset.init_point_num}, max point num: {opt.max_primitive_num}")
+
+    frequency_bands = [
+        (0.01, 0.10),
+        (0.10, 0.20),
+        (0.20, 0.40)
+    ]
+
+    # Initialize FFTBandEnergy module for fast frequency analysis
+    fft_band_energy = FFTBandEnergy(
+        bands=frequency_bands,
+        use_fastlen=True,
+        use_local_contrast=True,
+        ksz=17
+    ).cuda()
+
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = GaussianModel(dataset.sh_degree)
@@ -121,18 +140,50 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
-
-            # Densification
-            if iteration < opt.densify_until_iter:
+            # Error based densification
+            if iteration < opt.densify_until_iter and\
+                (opt.max_primitive_num == None or (opt.max_primitive_num != None and gaussians._xyz.shape[0] < opt.max_primitive_num)):
                 gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter], radii[visibility_filter])
-                gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-
+                # Densification
                 if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                    size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                    gaussians.densify_and_prune(opt.densify_grad_threshold, opt.opacity_cull, scene.cameras_extent, size_threshold)
-                
-                if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
-                    gaussians.reset_opacity()
+                    # Gaussian's error calculation
+                    gaussians_error_max = torch.zeros((gaussians._xyz.shape[0]), device="cuda")
+                    render_view_list = scene.getTrainCameras().copy()
+                    render_view_list = random.sample(render_view_list, len(render_view_list))
+                    selected_render_view_list = render_view_list[:dataset.densification_camera_num] if dataset.densification_camera_num <= len(render_view_list) else render_view_list
+                    render_image_batch = []
+                    gt_image_batch = []
+                    for render_view in selected_render_view_list:
+                        image = render(render_view, gaussians, pipe, background)["render"]
+                        gt_image = render_view.original_image.cuda()
+                        render_image_batch.append(image)
+                        gt_image_batch.append(gt_image)
+
+                    render_image_batch = torch.stack(render_image_batch, dim=0)
+                    gt_image_batch = torch.stack(gt_image_batch, dim=0)
+
+                    with torch.autocast('cuda', torch.float16):
+                        render_image_maps = fft_band_energy(render_image_batch)         # (B, K, H, W)
+                        gt_image_maps = fft_band_energy(gt_image_batch)         # (B, K, H, W)
+                        render_image_maps_ave = local_average_filter(render_image_maps)
+                        gt_image_maps_ave = local_average_filter(gt_image_maps)
+                        error_map = torch.abs(render_image_maps_ave - gt_image_maps_ave)
+                        error_map = error_map.float()
+                    
+                        for b in range(len(selected_render_view_list)):
+                            for k in range(len(frequency_bands)):
+                                gaussians_error, gaussians_effect = inverse_project(error_map[b][k], selected_render_view_list[b], gaussians, pipe, background)
+                                gaussians_error_max = torch.max(gaussians_error_max, gaussians_error)
+
+                    size_threshold = None # Omit primitive reset based on screen size
+                    gaussians.error_based_densify_and_prune(
+                        gaussian_error=gaussians_error_max,
+                        max_primitive_num=opt.max_primitive_num,
+                        error_threshhold=0.01,
+                        min_opacity=opt.opacity_cull,
+                        extent=scene.cameras_extent,
+                        max_screen_size=size_threshold
+                    )
 
             # Optimizer step
             if iteration < opt.iterations:

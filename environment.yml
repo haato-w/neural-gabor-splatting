@@ -22,5 +22,6 @@ dependencies:
     - trimesh==4.3.2
     - submodules/diff-neural-gabor-rasterization
     - submodules/simple-knn
+    - error-inverse-projector
     - plyfile
     - opencv-python

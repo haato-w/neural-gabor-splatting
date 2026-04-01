@@ -48,6 +48,7 @@ class ModelParams(ParamGroup):
     def __init__(self, parser, sentinel=False):
         self.down_sample = True # Sampling initial point
         self.init_point_num = 5000 # The number of initial point
+        self.densification_camera_num = 20 # The number of camera used for error based densification
         self.sh_degree = 3
         self._source_path = ""
         self._model_path = ""
@@ -91,6 +92,7 @@ class OptimizationParams(ParamGroup):
 
         self.densification_interval = 100
         self.opacity_reset_interval = 3000
+        self.max_primitive_num = 20_000 # Primitive number limitation
         self.densify_from_iter = 500
         self.densify_until_iter = 15_000
         self.densify_grad_threshold = 0.0002

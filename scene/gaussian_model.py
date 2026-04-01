@@ -445,3 +445,154 @@ class GaussianModel:
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
+
+    def densify_and_split_for_error_based(self, errors, error_threshold, max_primitive_num: int, scene_extent, N=2):
+        """
+        Split high-error Gaussians based on rendering error threshold.
+        
+        Args:
+            errors: Rendering error for each Gaussian
+            error_threshold: Threshold for selecting points to split
+            max_primitive_num: Maximum allowed number of Gaussians
+            scene_extent: Spatial extent of the scene
+            N: Number of splits per selected Gaussian (default: 2)
+        """
+        n_init_points = self.get_xyz.shape[0]
+        max_new_points = int(n_init_points * 0.05)  # Limit growth to 5% of initial points
+
+        if max_primitive_num - n_init_points <= 0: 
+            return
+        max_new_points = min(max_new_points, max_primitive_num - n_init_points)
+
+        # Extract points exceeding error threshold with large scales
+        padded_grad = torch.zeros((n_init_points), device="cuda")
+        padded_grad[:errors.shape[0]] = errors.squeeze()
+        selected_pts_mask = torch.where(padded_grad >= error_threshold, True, False)
+        selected_pts_mask = torch.logical_and(selected_pts_mask,
+                                              torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
+
+        # Sort by error in descending order
+        selected_indices = torch.nonzero(selected_pts_mask, as_tuple=False).squeeze()
+        if selected_indices.numel() > 0:
+            selected_errors = padded_grad[selected_indices]
+            sorted_indices = selected_indices[torch.argsort(selected_errors, descending=True)]
+            # Enforce limit on new points
+            if sorted_indices.numel() > max_new_points:
+                sorted_indices = sorted_indices[:max_new_points]
+            final_mask = torch.zeros_like(selected_pts_mask)
+            final_mask[sorted_indices] = True
+        else:
+            final_mask = selected_pts_mask  # No points selected
+
+        stds = self.get_scaling[final_mask].repeat(N,1)
+        stds = torch.cat([stds, 0 * torch.ones_like(stds[:,:1])], dim=-1)
+        means =torch.zeros((stds.size(0), 3),device="cuda")
+        samples = torch.normal(mean=means, std=stds)
+        rots = build_rotation(self._rotation[final_mask]).repeat(N,1,1)
+        new_xyz = torch.bmm(rots, samples.unsqueeze(-1)).squeeze(-1) + self.get_xyz[final_mask].repeat(N, 1)
+        new_scaling = self.scaling_inverse_activation(self.get_scaling[final_mask].repeat(N,1) / (0.8*N))
+        new_rotation = self._rotation[final_mask].repeat(N,1)
+        new_w1 = self._W1[final_mask].repeat(N, 1, 1)
+        new_b1 = self._b1[final_mask].repeat(N, 1)
+        new_w2 = self._W2[final_mask].repeat(N, 1, 1)
+        new_b2 = self._b2[final_mask].repeat(N, 1)
+        new_opacity = self._opacity[final_mask].repeat(N,1)
+
+        # Opacity Correction
+        new_opacity = self.inverse_opacity_activation(
+            1.0 - torch.sqrt(1.0 - self.opacity_activation(new_opacity))
+        )
+
+        self.densification_postfix(new_xyz, new_w1, new_b1, new_w2, new_b2, new_opacity, new_scaling, new_rotation)
+
+        prune_filter = torch.cat((final_mask, torch.zeros(N * final_mask.sum(), device="cuda", dtype=bool)))
+        self.prune_points(prune_filter)
+
+    def densify_and_clone_for_error_based(self, errors, error_threshold, max_primitive_num: int, scene_extent):
+        """
+        Clone high-error Gaussians based on rendering error threshold.
+        
+        Args:
+            errors: Rendering error for each Gaussian
+            error_threshold: Threshold for selecting points to clone
+            max_primitive_num: Maximum allowed number of Gaussians
+            scene_extent: Spatial extent of the scene
+        """
+        n_init_points = self.get_xyz.shape[0]
+        max_new_points = int(n_init_points * 0.05)  # Limit growth to 5% of initial points
+
+        if max_primitive_num - n_init_points <= 0: 
+            return
+        max_new_points = min(max_new_points, max_primitive_num - n_init_points)
+
+        # Extract points exceeding error threshold with small scales
+        selected_pts_mask = torch.where(errors >= error_threshold, True, False)
+        selected_pts_mask = torch.logical_and(selected_pts_mask,
+                                              torch.max(self.get_scaling, dim=1).values <= self.percent_dense*scene_extent)
+        
+        # Sort by error in descending order
+        selected_indices = torch.nonzero(selected_pts_mask, as_tuple=False).squeeze()
+        if selected_indices.numel() > 0:
+            selected_errors = errors[selected_indices]
+            sorted_indices = selected_indices[torch.argsort(selected_errors, descending=True)]
+            # Enforce limit on new points
+            if sorted_indices.numel() > max_new_points:
+                sorted_indices = sorted_indices[:max_new_points]
+            final_mask = torch.zeros_like(selected_pts_mask)
+            final_mask[sorted_indices] = True
+        else:
+            final_mask = selected_pts_mask  # No points selected
+
+        new_xyz = self._xyz[final_mask]
+        new_w1 = self._W1[final_mask]
+        new_b1 = self._b1[final_mask]
+        new_w2 = self._W2[final_mask]
+        new_b2 = self._b2[final_mask]
+        new_opacities = self._opacity[final_mask]
+        new_scaling = self._scaling[final_mask]
+        new_rotation = self._rotation[final_mask]
+
+        # Opacity Correction
+        self._opacity[final_mask] = self.inverse_opacity_activation(
+            1.0 - torch.sqrt(1.0 - self.opacity_activation(self._opacity[final_mask]))
+        )
+        new_opacities = self.inverse_opacity_activation(
+            1.0 - torch.sqrt(1.0 - self.opacity_activation(new_opacities))
+        )
+
+        self.densification_postfix(new_xyz, new_w1, new_b1, new_w2, new_b2, new_opacities, new_scaling, new_rotation)
+
+    def error_based_densify_and_prune(self, gaussian_error, max_primitive_num: int, error_threshhold: float, min_opacity, extent, max_screen_size):
+        """
+        Perform error-based densification and pruning of Gaussians.
+        
+        This method performs two main operations:
+        1. Densification: Clones and splits high-error Gaussians
+        2. Pruning: Removes low-opacity and overly large Gaussians
+        
+        Args:
+            gaussian_error: Rendering error for each Gaussian
+            max_primitive_num: Maximum allowed number of Gaussians
+            error_threshhold: Threshold for error-based densification
+            min_opacity: Minimum opacity threshold for pruning
+            extent: Spatial extent of the scene
+            max_screen_size: Maximum screen-space size threshold for pruning
+        """
+        # Densify by cloning and splitting high-error Gaussians
+        self.densify_and_clone_for_error_based(gaussian_error, error_threshhold, max_primitive_num, extent)
+        self.densify_and_split_for_error_based(gaussian_error, error_threshhold, max_primitive_num, extent)
+
+        # Apply alternative opacity reset strategy
+        self._opacity = self.inverse_opacity_activation(
+            torch.clamp(self.opacity_activation(self._opacity) - 0.001, min=0.0)
+        )
+
+        # Prune points based on opacity and screen-space size
+        prune_mask = (self.get_opacity < min_opacity).squeeze()
+        if max_screen_size:
+            big_points_vs = self.max_radii2D > max_screen_size
+            big_points_ws = self.get_scaling.max(dim=1).values > 0.1 * extent
+            prune_mask = torch.logical_or(torch.logical_or(prune_mask, big_points_vs), big_points_ws)
+        self.prune_points(prune_mask)
+
+        torch.cuda.empty_cache()
