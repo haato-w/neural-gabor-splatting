@@ -1,24 +1,10 @@
 # Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction
 
-This repository is under construction.
-
-[Project page]() | [Paper]() | [Video]() | [Gabor Rasterizer (CUDA)](https://github.com/haato-w/diff-neural-gabor-rasterization) <br>
+[Project page](https://haatowatanabe.com/projects/neural-gabor-splatting/) | [Paper]() | [Video](https://youtu.be/fOggwyjTtTg?si=I7qjineoUq5eqknr) | [Gabor Rasterizer (CUDA)](https://github.com/haato-w/diff-neural-gabor-rasterization) <br>
 
 ![Teaser image](assets/teaser_2.jpg)
 
 This repo contains the official implementation for the paper "Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction".
-
-Our work is based on 2D Gaussian splatting.
-
-Base repository:
-- 2D Gaussian Splatting: https://github.com/hbb1/2d-gaussian-splatting
-
-Base commit:
-- 1920a2395f13a285da80982acdb13a8b9e12f1cf
-
-This repository was created by copying and restructuring the code from the above commit and then extending it for Neural Gabor.
-
-Following statements come from [2DGS repository](https://github.com/hbb1/2d-gaussian-splatting.git). When you want to know features in more detail, please check the repository and paper.
 
 ### How to use
 ```shell
@@ -84,7 +70,19 @@ python metrics.py -m {model_path}
 ```
 
 ## Acknowledgements
-This project is built upon [3DGS](https://github.com/graphdeco-inria/gaussian-splatting) and [2DGS](https://github.com/hbb1/2d-gaussian-splatting.git). We thank all the authors for their great repos. 
+This project is built upon [3DGS](https://github.com/graphdeco-inria/gaussian-splatting) and [2DGS](https://github.com/hbb1/2d-gaussian-splatting.git). We thank all the authors for their great repos.
+
+This code is based on original 2D Gaussian splatting codebase.
+
+Base repository:
+- 2D Gaussian Splatting: https://github.com/hbb1/2d-gaussian-splatting
+
+Base commit:
+- 1920a2395f13a285da80982acdb13a8b9e12f1cf
+
+This repository was created by copying and restructuring the code from the above commit and then extending it for Neural Gabor.
+
+Following statements come from [2DGS repository](https://github.com/hbb1/2d-gaussian-splatting.git). When you want to know features in more detail, please check the repository and paper.
 
 
 ## Citation
