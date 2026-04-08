@@ -96,6 +96,6 @@ If you find our code or paper helps, please consider citing:
 @inproceedings{watanabe3Dgabors,
       title     = {Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction},
       author    = {Haato Watanabe and Nobuyuki Umetani},
-      year      = {2026}
+      year      = {CVPR 2026}
 }
 ```
