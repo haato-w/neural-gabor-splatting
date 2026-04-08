@@ -5,7 +5,7 @@
 <!-- Authors -->
 Haato Watanabe, Nobuyuki Umetani
 
-[Project page](https://haatowatanabe.com/projects/neural-gabor-splatting/) | [Paper]() | [Video](https://youtu.be/fOggwyjTtTg?si=I7qjineoUq5eqknr) | [Gabor Rasterizer (CUDA)](https://github.com/haato-w/diff-neural-gabor-rasterization) <br>
+[Project page](https://haatowatanabe.com/projects/neural-gabor-splatting/) | [Paper](https://drive.google.com/file/d/1bM6uUnRHHy4EBL7q8TNh80jEaxRvlKD1/view?usp=sharing) | [Video](https://youtu.be/fOggwyjTtTg?si=I7qjineoUq5eqknr) | [Gabor Rasterizer (CUDA)](https://github.com/haato-w/diff-neural-gabor-rasterization) <br>
 
 ![Teaser image](assets/teaser_2.jpg)
 
