@@ -1,5 +1,10 @@
 # Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction
 
+### CVPR 2026 Accepted
+
+<!-- Authors -->
+Haato Watanabe, Nobuyuki Umetani
+
 [Project page](https://haatowatanabe.com/projects/neural-gabor-splatting/) | [Paper]() | [Video](https://youtu.be/fOggwyjTtTg?si=I7qjineoUq5eqknr) | [Gabor Rasterizer (CUDA)](https://github.com/haato-w/diff-neural-gabor-rasterization) <br>
 
 ![Teaser image](assets/teaser_2.jpg)
