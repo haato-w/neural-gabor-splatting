@@ -1,6 +1,6 @@
 # Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction
 
-### CVPR 2026 Accepted
+### CVPR 2026
 
 <!-- Authors -->
 Haato Watanabe, Nobuyuki Umetani
