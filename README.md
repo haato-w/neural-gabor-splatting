@@ -11,14 +11,6 @@ Haato Watanabe, Nobuyuki Umetani
 
 This repo contains the official implementation for the paper "Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction".
 
-### How to use
-```shell
-# Starting the training process
-python train.py -s <path to COLMAP or NeRF Synthetic dataset> 
-# View the trained model
-python view.py -s <path to COLMAP or NeRF Synthetic dataset> -m <path to trained model> 
-```
-
 ## Installation
 
 ```bash
