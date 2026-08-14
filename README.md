@@ -85,9 +85,12 @@ Following statements come from [2DGS repository](https://github.com/hbb1/2d-gaus
 ## Citation
 If you find our code or paper helps, please consider citing:
 ```bibtex
-@inproceedings{watanabe3Dgabors,
-      title     = {Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction},
-      author    = {Haato Watanabe and Nobuyuki Umetani},
-      year      = {CVPR 2026}
+@InProceedings{Watanabe_2026_CVPR,
+    author    = {Watanabe, Haato and Umetani, Nobuyuki},
+    title     = {Neural Gabor Splatting: Enhanced Gaussian Splatting with Neural Gabor for High-frequency Surface Reconstruction},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2026},
+    pages     = {4932-4941}
 }
 ```
